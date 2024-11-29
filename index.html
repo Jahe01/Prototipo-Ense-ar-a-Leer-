@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>¡Aprende Jugando!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes celebrate {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .celebration {
+            animation: celebrate 0.5s ease-out;
+        }
+        .progress-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        .star-progress {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            margin: 1rem 0;
+        }
+        .star {
+            width: 2rem;
+            height: 2rem;
+            transition: all 0.3s ease;
+        }
+        .star.earned {
+            color: #FFD700;
+            transform: scale(1.2);
+        }
+        .star.unearned {
+            color: #CBD5E0;
+        }
+        .completion-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .completion-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            text-align: center;
+            max-width: 90%;
+            width: 400px;
+        }
+        .voice-image {
+            width: 50px; /* Tamaño de la imagen */
+            height: 50px; /* Tamaño de la imagen */
+            transition: border 0.3s ease; /* Suaviza la transición del borde */
+        }
+        
+        .voice-image:hover {
+            border: 2px solid #6b46c1; /* Color del borde al pasar el mouse */
+            border-radius: 5px; /* Opcional: esquinas redondeadas */
+        }
+        
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-100 to-pink-100 min-h-screen">
+    <div id="completionModal" class="completion-modal hidden">
+        <div class="completion-content celebration">
+            <h2 class="text-3xl font-bold text-purple-600 mb-4">¡Felicidades! 🎉</h2>
+            <p class="text-xl mb-4">¡Has completado todas las lecciones de <span id="completedCategory"></span>!</p>
+            <div class="flex justify-center mb-4">
+                <svg class="w-16 h-16 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
+            </div>
+            <button onclick="closeCompletionModal()" class="bg-purple-600 text-white px-6 py-2 rounded-full hover:bg-purple-700 transition-colors">
+                ¡Seguir aprendiendo!
+            </button>
+        </div>
+    </div>
+
+    <header class="bg-white shadow-lg p-4">
+        <div class="container mx-auto flex justify-between items-center flex-wrap">
+            <h1 class="text-3xl md:text-4xl font-bold text-purple-600">¡Aprende Jugando!</h1>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <svg class="text-yellow-400 w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                    </svg>
+                    <span id="totalStars" class="text-2xl md:text-3xl font-bold">0</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto mt-8 px-4">
+        <div class="flex justify-center gap-4 mb-8 flex-wrap">
+            <button onclick="setMode('letters')" class="mode-btn w-full sm:w-auto px-4 py-2 rounded-full text-lg font-bold transition-all transform hover:scale-105 bg-purple-600 text-white shadow-lg">
+                Letras
+            </button>
+            <button onclick="setMode('syllables')" class="mode-btn w-full sm:w-auto px-4 py-2 rounded-full text-lg font-bold transition-all transform hover:scale-105 bg-white text-purple-600 hover:bg-purple-100">
+                Sílabas
+            </button>
+            <button onclick="setMode('words')" class="mode-btn w-full sm:w-auto px-1 py-1 rounded-full text-lg font-bold transition-all transform hover:scale-105 bg-white text-purple-600 hover:bg-purple-100">
+                Palabras
+            </button>
+        </div>
+
+        <!-- Progress Section -->
+        <div class="max-w-2xl mx-auto mb-6">
+            <div class="star-progress" id="starProgress"></div>
+            <div class="bg-gray-200 rounded-full h-4 overflow-hidden">
+                <div id="progressBar" class="progress-bar bg-purple-600 h-full rounded-full" style="width: 0%"></div>
+            </div>
+            <div class="text-center text-sm font-medium text-purple-600 mt-2">
+                Progreso: <span id="progressText">0%</span>
+            </div>
+        </div>
+
+        <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8 mb-8">
+            <div class="relative">
+                <div id="success" class="hidden absolute inset-0 flex items-center justify-center">
+                    <div class="text-6xl animate-bounce">⭐</div>
+                </div>
+                
+                <div class="flex items-center justify-center gap-8">
+                    <button onclick="previousItem()" class="p-2 rounded-full hover:bg-gray-100">
+                        <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                    </button>
+
+                    <div class="text-center">
+                        <div id="currentItem" class="text-8xl md:text-9xl font-bold text-purple-600 mb-4">A</div>
+                        <div id="wordImage" class="image-container mb-4 flex justify-center">
+                            <!-- Image will be inserted here -->
+                        </div>
+                        <button onclick="playSound()" class="bg-purple-600 text-white p-4 rounded-full hover:bg-purple-700 transition-colors">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M17.95 4.95a9 9 0 010 14.1M11 5L6 9H2v6h4l5 4V5z"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <button onclick="nextItem()" class="p-2 rounded-full hover:bg-gray-100">
+                        <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-8 grid grid-cols-2 gap-4">
+                <button onclick="handleCorrectAnswer()" class="bg-green-500 text-white text-xl font-bold py-4 px-8 rounded-xl hover:bg-green-600 transition-colors">
+                    ¡Lo sé!
+                </button>
+                <button onclick="handlePracticeMore()" class="bg-yellow-500 text-white text-xl font-bold py-4 px-8 rounded-xl hover:bg-yellow-600 transition-colors">
+                    Practicar más
+                </button>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center">
+            <label for="voiceSelector" class="text-lg font-bold text-purple-600">Selecciona una voz:</label>
+            <button onclick="loadVoices()" class="bg-purple-600 text-white p-4 rounded-full mt-2">
+                Cargar Voces
+            </button>
+            <div id="voiceSelector" class="mt-2 flex justify-center gap-8 flex-wrap"></div>
+        </div>
+    </div>
+
+    <script>
+        const CONTENT = {
+            letters: [
+                { text: 'A', image: 'https://i.pinimg.com/control2/736x/f2/15/0a/f2150a3fa4519376a3a89cc29a970db9.jpg', stars: 0 },
+                { text: 'B', image: 'https://i.pinimg.com/736x/8a/e4/7f/8ae47f3a26503d6fa01cab89e81de3f7.jpg', stars: 0 },
+                { text: 'C', image: 'https://i.pinimg.com/736x/98/0a/47/980a4755edfcf926ff2ef08ce8576806.jpg', stars: 0 },
+                { text: 'D', image: 'https://i.pinimg.com/736x/40/a7/8a/40a78a5a33de1cd6f496a70a86296006.jpg', stars: 0 },
+                { text: 'E', image: 'https://i.pinimg.com/736x/3d/bb/f7/3dbbf736df7f73a4d52fa1d5a437a992.jpg', stars: 0 },
+                { text: 'F', image: 'https://i.pinimg.com/control2/736x/14/65/19/146519f13c410c5efb6695b755af3b89.jpg', stars: 0 },
+                { text: 'G', image: 'https://i.pinimg.com/736x/68/10/99/681099f094ca8fa3599dcd5e59b66774.jpg', stars: 0 },
+                { text: 'H', image: 'https://i.pinimg.com/736x/77/c4/00/77c4006d573ed2838de1c2e6ad9fe583.jpg', stars: 0 }
+            ],
+            syllables: [
+                { text: 'MA', image: 'https://i.pinimg.com/control2/736x/64/63/d5/6463d5f36afff3d512276de3b9de6772.jpg', stars: 0 },
+                { text: 'PA', image: 'https://i.pinimg.com/736x/c1/a6/88/c1a688e6750f469fa6547966c3efd253.jpg', stars: 0 },
+                { text: 'NA', image: 'https://i.pinimg.com/736x/8c/a1/de/8ca1de54e02189d209477f93fcbb5751.jpg', stars: 0 },
+                { text: 'TA', image: 'https://i.pinimg.com/736x/a3/32/b5/a332b55de342b768c477f6ad2f480f4e.jpg', stars: 0 },
+                { text: 'LA', image: 'https://i.pinimg.com/736x/94/5c/32/945c326d2b19239b0324ad1b77479c32.jpg', stars: 0 }
+            ],
+            words: [
+                { text: 'CASA', image: 'https://i.pinimg.com/736x/d8/da/eb/d8daebda15335460bc94f629d754dfbc.jpg', stars: 0 },
+                { text: 'PERRO', image: 'https://i.pinimg.com/736x/6a/0d/6d/6a0d6d353d1585bf5f209fb08b6e9039.jpg', stars: 0 },
+                { text: 'GATO', image: 'https://i.pinimg.com/736x/83/77/c8/8377c8da0d8865dc0fcb0ec51e957eef.jpg', stars: 0 },
+                { text: 'SOL', image: 'https://i.pinimg.com/736x/33/6f/7c/336f7ce10109237cce3d9573c3ee7c56.jpg', stars: 0 },
+                { text: 'LUNA', image: 'https://i.pinimg.com/736x/5a/bd/dc/5abddcad0127d3b7767576ba0904b473.jpg', stars: 0 },
+                { text: 'GALLETA', image: 'https://i.pinimg.com/736x/41/b0/39/41b039333fda4af6ed381c39f7bcdd27.jpg', stars: 0 },
+                { text: 'NUBE', image: 'https://i.pinimg.com/736x/9c/16/af/9c16afe385394788643252b101b83738.jpg', stars: 0 },
+                { text: 'NAVIDAD', image: 'https://i.pinimg.com/736x/dc/66/5c/dc665c52ee35202851efa475d406cda2.jpg', stars: 0 },
+                { text: 'FLOR', image: 'https://i.pinimg.com/736x/0f/32/75/0f32756a6ea4bf1918bd63623b071bfd.jpg', stars: 0 },
+                { text: 'SAPO', image: 'https://i.pinimg.com/736x/19/00/1e/19001ecc2b30d37e598194853c812bcd.jpg', stars: 0 },
+                { text: 'CELULAR', image: 'https://i.pinimg.com/736x/94/95/c0/9495c038b74e5022b3046b8780eb3e2a.jpg', stars: 0 },
+                { text: 'OSO', image: 'https://i.pinimg.com/control2/736x/45/1d/41/451d412a34ee5c9c48e8a78490e68568.jpg', stars: 0 },
+                { text: 'DINOSAURIO', image: 'https://i.pinimg.com/736x/07/aa/66/07aa66ae9847243a265e09fbf69c42d5.jpg', stars: 0 }
+
+            ]
+        };
+
+        let currentMode = 'letters';
+        let currentIndex = 0;
+        let selectedVoice = null;
+        let synthesis = window.speechSynthesis;
+        let voicesLoaded = false;
+
+        const MAX_STARS = 3;
+
+        const CUSTOM_VOICES = [
+            {
+                name: 'Michi Luna',
+                image: 'https://i.pinimg.com/736x/53/ee/b3/53eeb3b3c3868f023fd66d0f92fa0ec9.jpg',
+                pitch: 1.2,
+                rate: 0.9
+            },
+            {
+                name: 'Michi Oreo',
+                image: 'https://i.pinimg.com/736x/ad/93/5c/ad935c2054c581901923a14c9c39ff7d.jpg',
+                pitch: 0.8,
+                rate: 0.85
+            },
+            {
+                name: 'Michi Huesos',
+                image: 'https://i.pinimg.com/736x/a3/eb/d2/a3ebd20504d955533c1d8c08be69c989.jpg',
+                pitch: 1.4,
+                rate: 0.95
+            }
+        ];
+
+        function updateStarProgress() {
+            const starContainer = document.getElementById('starProgress');
+            starContainer.innerHTML = '';
+            
+            const currentItem = CONTENT[currentMode][currentIndex];
+            for (let i = 0; i < MAX_STARS; i++) {
+                const star = document.createElement('div');
+                star.innerHTML = `
+                    <svg class="star ${i < currentItem.stars ? 'earned' : 'unearned'}" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                    </svg>
+                `;
+                starContainer.appendChild(star);
+            }
+        }
+
+        function updateProgress() {
+            const items = CONTENT[currentMode];
+            const totalPossibleStars = items.length * MAX_STARS;
+            const earnedStars = items.reduce((sum, item) => sum + item.stars, 0);
+            const percentage = Math.round((earnedStars / totalPossibleStars) * 100);
+
+            document.getElementById('progressBar').style.width = `${percentage}%`;
+            document.getElementById('progressText').textContent = `${percentage}%`;
+            document.getElementById('totalStars').textContent = earnedStars;
+
+            // Check if category is completed
+            if (percentage === 100 && !document.getElementById('completionModal').classList.contains('show')) {
+                showCompletionMessage();
+            }
+        }
+
+        function showCompletionMessage() {
+            const modal = document.getElementById('completionModal');
+            const categoryName = {
+                'letters': 'Letras',
+                'syllables': 'Sílabas',
+                'words': 'Palabras'
+            }[currentMode];
+            
+            document.getElementById('completedCategory').textContent = categoryName;
+            modal.classList.remove('hidden');
+            modal.classList.add('show');
+        }
+
+        function closeCompletionModal() {
+            const modal = document.getElementById('completionModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('show');
+        }
+
+        function handleCorrectAnswer() {
+            const currentItem = CONTENT[currentMode][currentIndex];
+            if (currentItem.stars < MAX_STARS) {
+                currentItem.stars++;
+                const success = document.getElementById('success');
+                success.classList.remove('hidden');
+                setTimeout(() => {
+                    success.classList.add('hidden');
+                }, 1000);
+            }
+            updateStarProgress();
+            updateProgress();
+            if (currentItem.stars === MAX_STARS) {
+                nextItem();
+            }
+        }
+
+        function handlePracticeMore() {
+            const currentItem = CONTENT[currentMode][currentIndex];
+            if (currentItem.stars > 0) {
+                currentItem.stars = Math.max(0, currentItem.stars - 1);
+            }
+            updateStarProgress();
+            updateProgress();
+            nextItem();
+        }
+
+        function playSound() {
+            if (!selectedVoice) {
+                loadVoices();
+                return;
+            }
+
+            synthesis.cancel();
+
+            const currentItem = CONTENT[currentMode][currentIndex];
+            const textToSpeak = currentItem.text;
+            
+            const utterance = new SpeechSynthesisUtterance(textToSpeak);
+            utterance.voice = selectedVoice.voice;
+            utterance.lang = 'es-419';
+            utterance.rate = selectedVoice.customRate;
+            utterance.pitch = selectedVoice.customPitch;
+            
+            const soundButton = document.querySelector('button[onclick="playSound()"]');
+            soundButton.classList.add('animate-pulse');
+            
+            utterance.onend = () => {
+                soundButton.classList.remove('animate-pulse');
+            };
+
+            synthesis.speak(utterance);
+        }
+
+        async function loadVoices() {
+            if (synthesis.getVoices().length === 0) {
+                return new Promise(resolve => {
+                    synthesis.addEventListener('voiceschanged', () => {
+                        resolve(initializeVoices());
+                    });
+                });
+            } else {
+                return initializeVoices();
+            }
+        }
+
+        function initializeVoices() {
+            if (voicesLoaded) return;
+
+            const voices = synthesis.getVoices();
+            const spanishVoices = voices.filter(voice => 
+                voice.lang.startsWith('es') || 
+                voice.name.toLowerCase().includes('spanish') || 
+                voice.name.toLowerCase().includes('español')
+            );
+
+            const availableVoices = spanishVoices.length > 0 ? spanishVoices : voices;
+            const voiceSelector = document.getElementById('voiceSelector');
+            voiceSelector.innerHTML = '';
+
+            if (availableVoices.length === 0) {
+                voiceSelector.innerHTML = '<p class="text-red-500">No se encontraron voces disponibles. Por favor, recarga la página.</p>';
+                return;
+            }
+
+            const customVoiceObjects = CUSTOM_VOICES.map((customVoice, index) => {
+                const baseVoice = availableVoices[index % availableVoices.length];
+                return {
+                    voice: baseVoice,
+                    customName: customVoice.name,
+                    customImage: customVoice.image,
+                    customPitch: customVoice.pitch,
+                    customRate: customVoice.rate
+                };
+            });
+
+            customVoiceObjects.forEach(voiceObj => {
+                const option = document.createElement('div');
+                option.className = 'voice-option';
+                option.onclick = () => selectVoice(option, voiceObj);
+
+                option.innerHTML = `
+                <img src="${voiceObj.customImage}" alt="${voiceObj.customName}" class="voice-image">
+                <span class="text-lg text-purple-600">${voiceObj.customName}</span>
+            `;
+                voiceSelector.appendChild(option);
+            });
+
+            if (!selectedVoice && customVoiceObjects.length > 0) {
+                const defaultVoice = customVoiceObjects.find(v => v.customName === 'Michi Luna') || customVoiceObjects[0];
+                const firstOption = voiceSelector.firstChild;
+                if (firstOption) {
+                    selectVoice(firstOption, defaultVoice);
+                }
+            }
+
+            voicesLoaded = true;
+        }
+
+        function selectVoice(option, voiceObj) {
+            selectedVoice = voiceObj;
+            document.querySelectorAll('.voice-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            option.classList.add('selected');
+
+            const utterance = new SpeechSynthesisUtterance('¡Hola! Soy ' + voiceObj.customName);
+            utterance.voice = voiceObj.voice;
+            utterance.lang = 'es-419';
+            utterance.rate = voiceObj.customRate;
+            utterance.pitch = voiceObj.customPitch;
+            utterance.volume = 0.8;
+            synthesis.speak(utterance);
+        }
+
+        function updateDisplay() {
+            const currentItem = CONTENT[currentMode][currentIndex];
+            document.getElementById('currentItem').textContent = currentItem.text;
+
+            const imageContainer = document.getElementById('wordImage');
+            imageContainer.innerHTML = '';
+            if (currentItem.image) {
+                const img = document.createElement('img');
+                img.src = currentItem.image;
+                img.alt = currentItem.text;
+                img.className = 'max-h-20 w-auto';
+                imageContainer.appendChild(img);
+            }
+
+            updateStarProgress();
+            updateProgress();
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            currentIndex = 0;
+            updateDisplay();
+            
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('bg-purple-600', 'text-white', 'shadow-lg');
+                btn.classList.add('bg-white', 'text-purple-600');
+            });
+            
+            const selectedBtn = document.querySelector(`button[onclick="setMode('${mode}')"]`);
+            selectedBtn.classList.remove('bg-white', 'text-purple-600');
+            selectedBtn.classList.add('bg-purple-600', 'text-white', 'shadow-lg');
+        }
+
+        function nextItem() {
+            if (currentIndex < CONTENT[currentMode].length - 1) {
+                currentIndex++;
+                updateDisplay();
+            }
+        }
+
+        function previousItem() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                updateDisplay();
+            }
+        }
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', () => {
+            loadVoices();
+            updateDisplay();
+        });
+
+        // Exponer funciones al ámbito global
+        window.playSound = playSound;
+        window.loadVoices = loadVoices;
+        window.selectVoice = selectVoice;
+        window.setMode = setMode;
+        window.nextItem = nextItem;
+        window.previousItem = previousItem;
+        window.handleCorrectAnswer = handleCorrectAnswer;
+        window.handlePracticeMore = handlePracticeMore;
+        window.closeCompletionModal = closeCompletionModal;
+    </script>
+</body>
+</html>
